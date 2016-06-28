@@ -98,7 +98,7 @@ local function createModel(opt)
    end
 
    local model = nn.Sequential()
-   if opt.dataset == 'imagenet' then
+   if opt.dataset == 'imagenet' or opt.dataset == 'lmdb' then
       -- Configurations for ResNet:
       --  num. residual blocks, num features, residual block function
       local cfg = {

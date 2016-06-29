@@ -72,7 +72,7 @@ local function createModel(opt)
         for t=1,nscales do
            thresholds[#thresholds+1] = 0
         end
-        minstream:add(Min({thresholds,thresholds}, 0.75, nscales,1,1, 1,1,1))
+        minstream:add(Min({thresholds,thresholds}, 0.75, nscales, true))
         if enable_pooling then
            minstream:add(Max(3,3,2,2,1,1))
         end

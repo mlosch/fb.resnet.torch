@@ -47,7 +47,13 @@ function LMDBDataset:get(i)
   local data = self.txn:get(self.imageInfo.keys[i])
 
   -- extract image and class
-  local class = string.split(data.Name,'_')[1]
+  local class
+  if data.Class == nil then
+    -- for backwards compatability with eladhoffers lmdb generators
+    class = string.split(data.Name, '_')[1]
+  else
+    class = data.Class
+  end
   local image = image.decompressJPG(data.Data,3,'float')
 
   return {

@@ -37,7 +37,13 @@ local function findClasses(dir)
 
   for i=1,N do
     local key, data = cursor:get()
-    local class = string.split(data.Name,'_')[1]
+    local class
+    if data.Class == nil then
+      -- for backwards compatability with eladhoffers lmdb generators
+      class = string.split(data.Name, '_')[1]
+    else
+      class = data.Class
+    end
 
     if classToIdx[class] == nil then
       table.insert(classList, class)

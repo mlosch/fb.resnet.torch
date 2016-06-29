@@ -103,6 +103,9 @@ function M.setup(opt, checkpoint)
          :add(model, gpus)
          :threads(function()
             local cudnn = require 'cudnn'
+            require 'minmax'
+            require 'models.SpatialConvolutionT'
+            require 'models.ConcatCase'
             cudnn.fastest, cudnn.benchmark = fastest, benchmark
          end)
       dpt.gradInput = nil

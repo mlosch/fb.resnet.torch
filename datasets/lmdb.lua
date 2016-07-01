@@ -49,7 +49,7 @@ function LMDBDataset:get(i)
   -- extract image and class
   local class
   if data.Class == nil then
-    -- for backwards compatability with eladhoffers lmdb generators
+    -- for backwards compatibility with eladhoffers lmdb generators
     class = string.split(data.Name, '_')[1]
   else
     class = data.Class

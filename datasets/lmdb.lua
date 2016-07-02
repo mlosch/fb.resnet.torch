@@ -29,6 +29,7 @@ function LMDBDataset:__init(imageInfo, opt, split)
      Name = split,
      RDONLY = true,
      MaxReaders = opt.nThreads,
+     NOLOCK = true,
    }
   --  self.source:open()
   --  self.txn = self.source:txn(true)

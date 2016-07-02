@@ -61,7 +61,8 @@ local function findClasses(dir)
   txn:abort()
   source:close()
 
-   assert(#classList == 1000, 'expected 1000 ImageNet classes. Got: '.. #classList)
+   --assert(#classList == 1000, 'expected 1000 ImageNet classes. Got: '.. #classList)
+   print('Got '.. #classList ..' classes')
    return classList, classToIdx, keyList
 end
 

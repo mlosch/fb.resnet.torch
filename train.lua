@@ -31,7 +31,7 @@ end
 
 function Trainer:train(epoch, dataloader)
    -- Trains the model for a single epoch
-   self.optimState.learningRate = self:learningRate(epoch)
+   self.optimState.learningRate = self:learningRate(epoch, dataloader:size())
 
    local timer = torch.Timer()
    local dataTimer = torch.Timer()
@@ -160,11 +160,10 @@ function Trainer:copyInputs(sample)
    self.target:resize(sample.target:size()):copy(sample.target)
 end
 
-function Trainer:learningRate(epoch)
+function Trainer:learningRate(epoch, trainsize)
    -- Training schedule
    local decay = 0
    if self.opt.dataset == 'lmdb' then
-      local trainsize = dataloader:size()
       -- let data size govern decay, reference is 1.3M for ImageNet
       local divisor = math.floor((1.3e6/trainsize) * 30)
       decay = math.floor((epoch - 1) / divisor)

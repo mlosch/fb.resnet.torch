@@ -163,7 +163,12 @@ end
 function Trainer:learningRate(epoch)
    -- Training schedule
    local decay = 0
-   if self.opt.dataset == 'imagenet' then
+   if self.opt.dataset == 'lmdb' then
+      local trainsize = dataloader:size()
+      -- let data size govern decay, reference is 1.3M for ImageNet
+      local divisor = math.floor((1.3e6/trainsize) * 30)
+      decay = math.floor((epoch - 1) / divisor)
+   elseif self.opt.dataset == 'imagenet' then
       decay = math.floor((epoch - 1) / 30)
    elseif self.opt.dataset == 'cifar10' then
       decay = epoch >= 122 and 2 or epoch >= 81 and 1 or 0

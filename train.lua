@@ -26,8 +26,8 @@ function Trainer:__init(model, criterion, opt, optimState)
       weightDecay = opt.weightDecay,
    }
 
-   self.trainlog = optim.Logger(paths.concat(opt.output, 'train_'.. opt.epochNumber ..'.log'))
-   self.vallog   = optim.Logger(paths.concat(opt.output, 'val_'.. opt.epochNumber ..'.log'))
+   self.trainlog = nil
+   self.vallog   = nil
 
    self.opt = opt
    self.params, self.gradParams = model:getParameters()
@@ -36,6 +36,10 @@ end
 function Trainer:train(epoch, dataloader)
    -- Trains the model for a single epoch
    self.optimState.learningRate = self:learningRate(epoch, dataloader:size())
+
+   if self.trainlog == nil then
+      self.trainlog = optim.Logger(paths.concat(self.opt.output, 'train_'.. epoch ..'.log'))
+   end
 
    local timer = torch.Timer()
    local dataTimer = torch.Timer()
@@ -95,6 +99,10 @@ end
 
 function Trainer:test(epoch, dataloader)
    -- Computes the top-1 and top-5 err on the validation set
+
+   if self.vallog == nil then
+      self.vallog = optim.Logger(paths.concat(self.opt.output, 'val_'.. epoch ..'.log'))
+   end
 
    local timer = torch.Timer()
    local dataTimer = torch.Timer()

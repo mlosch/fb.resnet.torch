@@ -59,7 +59,7 @@ for epoch = startEpoch, opt.nEpochs do
       print(' * Best model ', testTop1, testTop5)
    end
 
-   checkpoints.save(epoch, model, trainer.optimState, bestModel)
+   checkpoints.save(opt, epoch, model, trainer.optimState, bestModel)
    collectgarbage()
 end
 

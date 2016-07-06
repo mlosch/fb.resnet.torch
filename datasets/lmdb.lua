@@ -45,7 +45,15 @@ function LMDBDataset:get(i)
     self.txn = self.source:txn(true)
   end
 
-  local data = self.txn:get(self.imageInfo.keys[i])
+  local key = ffi.string(self.imageInfo.keys[i]:data())
+  local data = self.txn:get(key)
+
+  if data == nil then
+     print(data)
+  end
+  if data.Class == nil then
+     print(data)
+  end
 
   -- extract image and class
   local class
@@ -72,6 +80,7 @@ function LMDBDataset:size()
   end
    --return self.imageInfo.imageClass:size(1)
    return self.sourcestat['entries']
+   --return 64*20
 end
 
 -- Computed from random subset of ImageNet training images

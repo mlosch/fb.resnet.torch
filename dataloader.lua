@@ -80,6 +80,7 @@ function DataLoader:run()
                   target[i] = sample.target
                end
                collectgarbage()
+               collectgarbage()
                return {
                   input = batch:view(sz * nCrops, table.unpack(imageSize)),
                   target = target,

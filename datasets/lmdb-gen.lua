@@ -34,6 +34,7 @@ local function findClasses(dir)
 
   local N = source:stat()['entries']
   local classidx = 1
+  local maxlength = -1
 
   for i=1,N do
     local key, data = cursor:get()
@@ -51,6 +52,7 @@ local function findClasses(dir)
       classidx = classidx + 1
     end
     table.insert(keyList, key)
+    maxlength = math.max(maxlength, #key + 1)
 
     if i < N then
       cursor:next()
@@ -61,15 +63,22 @@ local function findClasses(dir)
   txn:abort()
   source:close()
 
+  -- Convert the generated keylist to a tensor for faster loading
+  local nImages = #keyList
+  local keyTensor = torch.CharTensor(nImages, maxlength):zero()
+  for i, key in ipairs(keyList) do
+     ffi.copy(keyTensor[i]:data(), key)
+  end
+
    --assert(#classList == 1000, 'expected 1000 ImageNet classes. Got: '.. #classList)
    print('Got '.. #classList ..' classes')
-   return classList, classToIdx, keyList
+   return classList, classToIdx, keyTensor
 end
 
 
 function M.exec(opt, cacheFile)
    -- find the image path names
-   local imagePath = torch.CharTensor()  -- path to each image in dataset
+   local keys = torch.CharTensor()  -- path to each image in dataset
    local imageClass = torch.LongTensor() -- class index of each image (class index in self.classes)
 
    local trainDir = paths.concat(opt.data, 'train')

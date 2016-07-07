@@ -31,19 +31,19 @@ function checkpoint.save(opt, epoch, model, optimState, bestModel)
       model = model:get(1)
    end
 
-   local modelFile = paths.concat(checkpoint.opt.output, 'model_' .. epoch .. '.t7')
-   local optimFile = paths.concat(checkpoint.opt.output, 'optimState_' .. epoch .. '.t7')
+   local modelFile = paths.concat(opt.output, 'model_' .. epoch .. '.t7')
+   local optimFile = paths.concat(opt.output, 'optimState_' .. epoch .. '.t7')
 
    torch.save(modelFile, model)
    torch.save(optimFile, optimState)
-   torch.save(paths.concat(checkpoint.opt.output, 'latest.t7'), {
+   torch.save(paths.concat(opt.output, 'latest.t7'), {
       epoch = epoch,
       modelFile = modelFile,
       optimFile = optimFile,
    })
 
    if bestModel then
-      torch.save(paths.concat(checkpoint.opt.output, 'model_best.t7'), model)
+      torch.save(paths.concat(opt.output, 'model_best.t7'), model)
    end
 end
 

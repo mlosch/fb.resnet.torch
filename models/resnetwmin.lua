@@ -13,7 +13,7 @@ local nn = require 'nn'
 require 'cunn'
 require 'minmax'
 require 'models.SpatialConvolutionT'
-require 'models.ConcatCase'
+require 'models.MyUnsqueeze'
 
 local Convolution = cudnn.SpatialConvolution
 local Avg = cudnn.SpatialAveragePooling
@@ -31,7 +31,7 @@ local function createModel(opt)
      assert(#ksizes == #strides)
      assert(#strides == #paddings)
 
-     local layer = nn.ConcatCase(3)
+     local layer = nn.Concat(3)
      local k = #ksizes
      local f
      nodes = {}
@@ -43,7 +43,7 @@ local function createModel(opt)
         paddings[i], paddings[i],
         f))
         node:add(SBatchNorm(outFeatures))
-        node:add(nn.Unsqueeze(3))
+        node:add(nn.MyUnsqueeze(3))
 
         if i == k then
            f = node.modules[1].weight
@@ -73,7 +73,7 @@ local function createModel(opt)
            thresholds[#thresholds+1] = 0
         end
         minstream:add(Min({thresholds,thresholds}, 0.75, nscales, true))
-	minstream:add(cudnn.VolumetricMaxPooling(4,1,1, 1,1,1)
+	     minstream:add(cudnn.VolumetricMaxPooling(4,1,1, 1,1,1)
         if enable_pooling then
            minstream:add(Max(3,3,2,2,1,1))
         end

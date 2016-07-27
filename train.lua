@@ -9,6 +9,8 @@
 --  The training loop and learning rate schedule
 --
 
+require 'util.dumpl1features'
+
 local optim = require 'optim'
 
 local M = {}
@@ -69,6 +71,12 @@ function Trainer:train(epoch, dataloader)
       self.model:backward(self.input, self.criterion.gradInput)
 
       optim.sgd(feval, self.params, self.optimState)
+
+      -- local gradsum = 0
+      -- for i=1,#self.model.modules[1].modules do
+      --    gradsum = gradsum + torch.sum(torch.abs(self.model.modules[1].modules[i].modules[1].gradWeight))
+      -- end
+      -- print('L1 grad abs sum: '.. torch.sum(torch.abs(self.model:get(1):getParameters())))
 
       local top1, top5 = self:computeScore(output, sample.target, 1)
       top1Sum = top1Sum + top1
@@ -146,6 +154,8 @@ function Trainer:test(epoch, dataloader)
       ['Top5'] = top5Sum / N,
    }
 
+   dumpl1features(self.model, paths.concat(self.opt.output, 'l1'), 'epoch_'..epoch)
+
    return top1Sum / N, top5Sum / N
 end
 
@@ -192,9 +202,10 @@ function Trainer:learningRate(epoch, trainsize)
    -- Training schedule
    local decay = 0
    if self.opt.dataset == 'lmdb' then
-      -- let data size govern decay, reference is 1.3M for ImageNet
-      -- local divisor = math.floor((1.3e6/trainsize) * 30)
-      decay = math.floor((epoch - 1) / 5)
+      -- let data size govern decay, reference is 1.3M for ImageNet and
+      -- batchSize = 256
+      local divisor = math.ceil(((1.3e6/256)/trainsize) * 30)
+      decay = math.floor((epoch - 1) / divisor)
    elseif self.opt.dataset == 'imagenet' then
       decay = math.floor((epoch - 1) / 30)
    elseif self.opt.dataset == 'cifar10' then

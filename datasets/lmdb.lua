@@ -24,24 +24,28 @@ function LMDBDataset:__init(imageInfo, opt, split)
    self.split = split
    self.dir = paths.concat(opt.data, split)
    assert(paths.dirp(self.dir), 'directory does not exist: ' .. self.dir)
-   self.source = lmdb.env{
-     Path = self.dir,
-     Name = split,
-     RDONLY = true,
-     MaxReaders = opt.nThreads,
-     NOLOCK = true,
-   }
-  --  self.source:open()
-  --  self.txn = self.source:txn(true)
+   self.source = nil
    self.sourcestat = nil
    self:size()
+end
+
+function LMDBDataset:_openDBEnvironment()
+   local env = lmdb.env{
+      Path = self.dir,
+      Name = self.split,
+      RDONLY = true,
+      MaxReaders = 1,
+      NOLOCK = true,
+   }
+   env:open()
+   return env
 end
 
 function LMDBDataset:get(i)
 
   -- self.source:open()
-  if self.txn == nil then
-    self.source:open()
+  if self.source == nil then
+    self.source = self:_openDBEnvironment()
     self.txn = self.source:txn(true)
   end
 
@@ -74,13 +78,13 @@ end
 
 function LMDBDataset:size()
   if not self.sourcestat then
-    self.source:open()
-    self.sourcestat = self.source:stat()
-    self.source:close()
+    local env = self:_openDBEnvironment()
+    self.sourcestat = env:stat()
+    env:close()
   end
    --return self.imageInfo.imageClass:size(1)
    return self.sourcestat['entries']
-   --return 64*20
+   -- return 64*20
 end
 
 -- Computed from random subset of ImageNet training images

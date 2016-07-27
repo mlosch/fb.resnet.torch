@@ -13,11 +13,12 @@ local nn = require 'nn'
 require 'cunn'
 require 'minmax'
 require 'models.SpatialConvolutionT'
-require 'models.ConcatCase'
+require 'models.SumNoSqueeze'
+require 'models.MyUnsqueeze'
 
 local Convolution = cudnn.SpatialConvolution
 local Avg = cudnn.SpatialAveragePooling
-local ReLU = cudnn.ReLU
+local ELU = nn.ELU
 local Max = nn.SpatialMaxPooling
 local SBatchNorm = nn.SpatialBatchNormalization
 local Min = nn.MinMaxPooling
@@ -27,32 +28,23 @@ local function createModel(opt)
    local shortcutType = opt.shortcutType or 'B'
    local iChannels
 
-   local function lockedscalepyramid(inFeatures, outFeatures, ksizes, strides, paddings)
+   local function scalepyramid(inFeatures, outFeatures, ksizes, strides, paddings)
      assert(#ksizes == #strides)
      assert(#strides == #paddings)
 
-     local layer = nn.ConcatCase(3)
+     local layer = nn.Concat(3)
      local k = #ksizes
-     local f
-     nodes = {}
-     for i=k,1,-1 do
+     for i=1,k do
         local node = nn.Sequential()
-        node:add(cudnn.SpatialConvolutionT(inFeatures, outFeatures,
+        node:add(cudnn.SpatialConvolution(inFeatures, outFeatures,
         ksizes[i], ksizes[i],
         strides[i], strides[i],
         paddings[i], paddings[i],
         f))
         node:add(SBatchNorm(outFeatures))
-        node:add(nn.Unsqueeze(3))
+        node:add(nn.MyUnsqueeze(3))
 
-        if i == k then
-           f = node.modules[1].weight
-        end
-        nodes[i] = node
-     end
-
-     for i=1,k do
-        layer:add(nodes[i])
+        layer:add(node)
      end
 
      return layer --out: b x nf x 4 x W x H
@@ -62,22 +54,14 @@ local function createModel(opt)
      enable_pooling = enable_pooling or false
 
      local minlayer = nn.Sequential()
-     --minlayer:add(nn.Transpose({1,3})) --out: nf x b x 4 x W x H
+   --   minlayer:add(nn.Transpose({1,3})) --out: nf x b x 4 x W x H
 
      local parallel = nn.Parallel(2,2)
      for i=1,nfeatures do
        -- module input: b x 4 x W x H
         local minstream = nn.Sequential()
-        local thresholds = {}
-        for t=1,nscales do
-           thresholds[#thresholds+1] = 0
-        end
-        minstream:add(Min({thresholds,thresholds}, 0.75, nscales, true))
-	minstream:add(cudnn.VolumetricMaxPooling(4,1,1, 1,1,1)
-        if enable_pooling then
-           minstream:add(Max(3,3,2,2,1,1))
-        end
-        minstream:add(ReLU(true))
+        minstream:add(nn.LateralInhibition(nscales, true, false))
+        minstream:add(nn.SumNoSqueeze(2))
         parallel:add(minstream)
      end
 
@@ -115,7 +99,7 @@ local function createModel(opt)
       local s = nn.Sequential()
       s:add(Convolution(nInputPlane,n,3,3,stride,stride,1,1))
       s:add(SBatchNorm(n))
-      s:add(ReLU(true))
+      s:add(ELU())
       s:add(Convolution(n,n,3,3,1,1,1,1))
       s:add(SBatchNorm(n))
 
@@ -124,7 +108,7 @@ local function createModel(opt)
             :add(s)
             :add(shortcut(nInputPlane, n, stride)))
          :add(nn.CAddTable(true))
-         :add(ReLU(true))
+         :add(ELU())
    end
 
    -- The bottleneck residual layer for 50, 101, and 152 layer networks
@@ -135,10 +119,10 @@ local function createModel(opt)
       local s = nn.Sequential()
       s:add(Convolution(nInputPlane,n,1,1,1,1,0,0))
       s:add(SBatchNorm(n))
-      s:add(ReLU(true))
+      s:add(ELU())
       s:add(Convolution(n,n,3,3,stride,stride,1,1))
       s:add(SBatchNorm(n))
-      s:add(ReLU(true))
+      s:add(ELU())
       s:add(Convolution(n,n*4,1,1,1,1,0,0))
       s:add(SBatchNorm(n * 4))
 
@@ -147,7 +131,7 @@ local function createModel(opt)
             :add(s)
             :add(shortcut(nInputPlane, n * 4, stride)))
          :add(nn.CAddTable(true))
-         :add(ReLU(true))
+         :add(ELU())
    end
 
    -- Creates count residual blocks with specified number of features
@@ -178,8 +162,11 @@ local function createModel(opt)
 
       -- The ResNet ImageNet model
       --model:add(Convolution(3,64,7,7,2,2,3,3))
-      model:add(lockedscalepyramid(3,64,{3,5,7,9},{2,2,2,2},{1,2,3,4}))
+      model:add(scalepyramid(3,64,{3,5,7,9},{2,2,2,2},{1,2,3,4}))
       model:add(minblock(64,4,true))
+      model:add(SBatchNorm(64))
+      model:add(Max(3,3,2,2,1,1))
+      model:add(ELU())
       model:add(layer(block, 64, def[1]))
       model:add(layer(block, 128, def[2], 2))
       model:add(layer(block, 256, def[3], 2))
@@ -197,7 +184,7 @@ local function createModel(opt)
       -- The ResNet CIFAR-10 model
       model:add(Convolution(3,16,3,3,1,1,1,1))
       model:add(SBatchNorm(16))
-      model:add(ReLU(true))
+      model:add(ELU())
       model:add(layer(basicblock, 16, n))
       model:add(layer(basicblock, 32, n, 2))
       model:add(layer(basicblock, 64, n, 2))
@@ -269,6 +256,8 @@ local function createModel(opt)
       v.bias:zero()
    end
 
+   print(model.modules[6])
+
    model:cuda()
 
    if opt.cudnn == 'deterministic' then
@@ -277,7 +266,7 @@ local function createModel(opt)
       end)
    end
 
-   model:get(1).gradInput = nil
+   -- model:get(1).gradInput = nil
 
    return model
 end

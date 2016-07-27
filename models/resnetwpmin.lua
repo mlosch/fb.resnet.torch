@@ -27,17 +27,15 @@ local function createModel(opt)
    local shortcutType = opt.shortcutType or 'B'
    local iChannels
 
-   local function lockedscalepyramid(inFeatures, outFeatures, ksizes, strides, paddings)
+   local function scalepyramid(inFeatures, outFeatures, ksizes, strides, paddings)
      assert(#ksizes == #strides)
      assert(#strides == #paddings)
 
      local layer = nn.ConcatCase(3)
      local k = #ksizes
-     local f
-     nodes = {}
-     for i=k,1,-1 do
+     for i=1,k do
         local node = nn.Sequential()
-        node:add(cudnn.SpatialConvolutionT(inFeatures, outFeatures,
+        node:add(cudnn.SpatialConvolution(inFeatures, outFeatures,
         ksizes[i], ksizes[i],
         strides[i], strides[i],
         paddings[i], paddings[i],
@@ -45,14 +43,7 @@ local function createModel(opt)
         node:add(SBatchNorm(outFeatures))
         node:add(nn.Unsqueeze(3))
 
-        if i == k then
-           f = node.modules[1].weight
-        end
-        nodes[i] = node
-     end
-
-     for i=1,k do
-        layer:add(nodes[i])
+        layer:add(node)
      end
 
      return layer --out: b x nf x 4 x W x H
@@ -68,12 +59,9 @@ local function createModel(opt)
      for i=1,nfeatures do
        -- module input: b x 4 x W x H
         local minstream = nn.Sequential()
-        local thresholds = {}
-        for t=1,nscales do
-           thresholds[#thresholds+1] = 0
-        end
-        minstream:add(Min({thresholds,thresholds}, 0.75, nscales, true))
-	minstream:add(cudnn.VolumetricMaxPooling(4,1,1, 1,1,1)
+        minstream:add(nn.LateralInhibition(nscales, true, false))
+	minstream:add(nn.Sum(2))
+	minstream:add(nn.Unsqueeze(2))
         if enable_pooling then
            minstream:add(Max(3,3,2,2,1,1))
         end
@@ -178,7 +166,7 @@ local function createModel(opt)
 
       -- The ResNet ImageNet model
       --model:add(Convolution(3,64,7,7,2,2,3,3))
-      model:add(lockedscalepyramid(3,64,{3,5,7,9},{2,2,2,2},{1,2,3,4}))
+      model:add(scalepyramid(3,64,{3,5,7,9},{2,2,2,2},{1,2,3,4}))
       model:add(minblock(64,4,true))
       model:add(layer(block, 64, def[1]))
       model:add(layer(block, 128, def[2], 2))

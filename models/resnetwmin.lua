@@ -13,11 +13,14 @@ local nn = require 'nn'
 require 'cunn'
 require 'minmax'
 require 'models.SpatialConvolutionT'
+require 'models.SumNoSqueeze'
 require 'models.MyUnsqueeze'
+require 'models.PrintShape'
 
 local Convolution = cudnn.SpatialConvolution
 local Avg = cudnn.SpatialAveragePooling
-local ReLU = cudnn.ReLU
+--local ReLU = cudnn.ReLU
+local ELU = nn.ELU
 local Max = nn.SpatialMaxPooling
 local SBatchNorm = nn.SpatialBatchNormalization
 local Min = nn.MinMaxPooling
@@ -73,11 +76,12 @@ local function createModel(opt)
            thresholds[#thresholds+1] = 0
         end
         minstream:add(Min({thresholds,thresholds}, 0.75, nscales, true))
-	     minstream:add(cudnn.VolumetricMaxPooling(4,1,1, 1,1,1)
+	     --minstream:add(cudnn.VolumetricMaxPooling(4,1,1, 1,1,1))
+        --minstream:add(nn.SumNoSqueeze(2))
         if enable_pooling then
            minstream:add(Max(3,3,2,2,1,1))
         end
-        minstream:add(ReLU(true))
+        minstream:add(ELU(nil,false))
         parallel:add(minstream)
      end
 
@@ -115,7 +119,7 @@ local function createModel(opt)
       local s = nn.Sequential()
       s:add(Convolution(nInputPlane,n,3,3,stride,stride,1,1))
       s:add(SBatchNorm(n))
-      s:add(ReLU(true))
+      s:add(ELU(nil,false))
       s:add(Convolution(n,n,3,3,1,1,1,1))
       s:add(SBatchNorm(n))
 
@@ -124,7 +128,7 @@ local function createModel(opt)
             :add(s)
             :add(shortcut(nInputPlane, n, stride)))
          :add(nn.CAddTable(true))
-         :add(ReLU(true))
+         :add(ELU(nil,false))
    end
 
    -- The bottleneck residual layer for 50, 101, and 152 layer networks
@@ -135,10 +139,10 @@ local function createModel(opt)
       local s = nn.Sequential()
       s:add(Convolution(nInputPlane,n,1,1,1,1,0,0))
       s:add(SBatchNorm(n))
-      s:add(ReLU(true))
+      s:add(ELU(nil,false))
       s:add(Convolution(n,n,3,3,stride,stride,1,1))
       s:add(SBatchNorm(n))
-      s:add(ReLU(true))
+      s:add(ELU(nil,false))
       s:add(Convolution(n,n*4,1,1,1,1,0,0))
       s:add(SBatchNorm(n * 4))
 
@@ -147,7 +151,7 @@ local function createModel(opt)
             :add(s)
             :add(shortcut(nInputPlane, n * 4, stride)))
          :add(nn.CAddTable(true))
-         :add(ReLU(true))
+         :add(ELU(nil,false))
    end
 
    -- Creates count residual blocks with specified number of features
@@ -197,7 +201,7 @@ local function createModel(opt)
       -- The ResNet CIFAR-10 model
       model:add(Convolution(3,16,3,3,1,1,1,1))
       model:add(SBatchNorm(16))
-      model:add(ReLU(true))
+      model:add(ELU(nil,false))
       model:add(layer(basicblock, 16, n))
       model:add(layer(basicblock, 32, n, 2))
       model:add(layer(basicblock, 64, n, 2))
@@ -277,7 +281,7 @@ local function createModel(opt)
       end)
    end
 
-   model:get(1).gradInput = nil
+   -- model:get(1).gradInput = nil
 
    return model
 end

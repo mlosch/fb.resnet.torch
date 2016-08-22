@@ -23,8 +23,9 @@ function M.setup(opt, checkpoint)
       assert(paths.filep(modelPath), 'Saved model not found: ' .. modelPath)
       print('=> Resuming model from ' .. modelPath)
       require 'models.SpatialConvolutionT'
-      require 'models.ConcatCase'
+      require 'models.MyUnsqueeze'
       require 'models.SumNoSqueeze'
+      require 'models.PrintShape'
       require 'minmax'
       model = torch.load(modelPath)
    elseif opt.retrain ~= 'none' then
@@ -111,6 +112,7 @@ function M.setup(opt, checkpoint)
             require 'models.SpatialConvolutionT'
             require 'models.MyUnsqueeze'
             require 'models.SumNoSqueeze'
+            require 'models.PrintShape'
             cudnn.fastest, cudnn.benchmark = fastest, benchmark
          end)
       dpt.gradInput = nil
